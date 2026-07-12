@@ -1,0 +1,12 @@
+{
+  "object_id": "bronze.orders_raw",
+  "layer": "bronze",
+  "columns": [
+    {"name": "order_id", "type": "string"},
+    {"name": "customer_id", "type": "string"},
+    {"name": "order_date", "type": "date"},
+    {"name": "amount", "type": "decimal"},
+    {"name": "currency", "type": "string"}
+  ],
+  "version": "1.0"
+}

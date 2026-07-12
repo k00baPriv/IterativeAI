@@ -1,0 +1,16 @@
+{
+  "object_id": "gold.fact_orders",
+  "template": "cast_and_dedupe",
+  "params": {
+    "source_table": "bronze.orders_raw",
+    "key_cols": ["order_id"],
+    "order_col": "order_date",
+    "cast_map": {"amount": "decimal(18,2)"}
+  },
+  "justification": {
+    "source_table": "depends_on[0]",
+    "key_cols": "transformation.grain",
+    "order_col": "transformation.logic_description: 'keep latest by order_date'",
+    "cast_map": "transformation.logic_description: 'cast amount to decimal(18,2)'"
+  }
+}

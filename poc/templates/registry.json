@@ -1,0 +1,12 @@
+{
+  "cast_and_dedupe": {
+    "description": "Casts source columns to target types and deduplicates rows on a key, keeping the latest row per an ordering column.",
+    "matches_transformation_type": ["cast_and_dedupe", "aggregate_and_cast"],
+    "params_schema": {
+      "source_table": "string - fully qualified object_id of the single upstream source",
+      "key_cols": "list[string] - columns forming the dedupe key (usually the target's grain)",
+      "order_col": "string - column used to pick the 'latest' row when deduping",
+      "cast_map": "object - {column_name: target_type} for columns that need a type cast"
+    }
+  }
+}

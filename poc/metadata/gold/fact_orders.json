@@ -1,0 +1,16 @@
+{
+  "object_id": "gold.fact_orders",
+  "layer": "gold",
+  "depends_on": ["bronze.orders_raw"],
+  "transformation": {
+    "type": "cast_and_dedupe",
+    "logic_description": "cast amount to decimal(18,2), dedupe on order_id keeping the latest row by order_date",
+    "grain": "order_id"
+  },
+  "columns": [
+    {"name": "order_id", "type": "string", "key": true},
+    {"name": "order_date", "type": "date"},
+    {"name": "amount", "type": "decimal(18,2)"}
+  ],
+  "version": "1.0"
+}
