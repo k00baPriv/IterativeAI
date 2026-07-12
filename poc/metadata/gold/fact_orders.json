@@ -4,7 +4,7 @@
   "depends_on": ["silver.orders", "silver.order_item_totals"],
   "transformation": {
     "type": "cast_dedupe_join",
-    "logic_description": "dedupe silver.orders on order_id keeping the latest row by order_date (already cast upstream, no further casts needed here), then left join silver.order_item_totals on order_id to add total_quantity, total_amount, item_count",
+    "logic_description": "dedupe silver.orders on order_id keeping the latest row by order_date (already cast upstream, no further casts needed here), then left join silver.order_item_totals on order_id to add total_quantity, total_amount, item_count. Also concatenate city and country as customer_location separated by ', '",
     "grain": "order_id"
   },
   "columns": [
@@ -13,6 +13,7 @@
     {"name": "amount", "type": "decimal(18,2)"},
     {"name": "country", "type": "string"},
     {"name": "city", "type": "string"},
+    {"name": "customer_location", "type": "string"},
     {"name": "total_quantity", "type": "int"},
     {"name": "total_amount", "type": "decimal"},
     {"name": "item_count", "type": "int"}

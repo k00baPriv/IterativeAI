@@ -19,7 +19,7 @@
     }
   },
   "cast_dedupe_join": {
-    "description": "Casts + dedupes a primary source (same as cast_and_dedupe), then left-joins in a secondary source (typically the output of an aggregate template) on a shared key column.",
+    "description": "Casts + dedupes a primary source (same as cast_and_dedupe), then left-joins in a secondary source (typically the output of an aggregate template) on a shared key column. Optionally computes derived columns from a closed set of ops after the join.",
     "matches_transformation_type": ["cast_dedupe_join"],
     "params_schema": {
       "primary_source": "string - fully qualified object_id of the primary (dedupe-then-cast) source",
@@ -27,7 +27,8 @@
       "primary_order_col": "string - column used to pick the 'latest' row when deduping the primary source",
       "primary_cast_map": "object - {column_name: target_type} for columns on the primary source that need a cast",
       "join_source": "string - fully qualified object_id of the secondary source to left-join in",
-      "join_key": "string - column name to join on; must exist, with the same name, in both sources and in the target's own columns"
+      "join_key": "string - column name to join on; must exist, with the same name, in both sources and in the target's own columns",
+      "derived_columns": "object, optional - {output_column: {op: 'concat', source_cols: [string, ...], separator: string}}. source_cols must exist in the primary or join source (post-join). Only 'concat' is supported today - see _DERIVED_OPS in build/generator.py for the full closed set of ops."
     }
   }
 }

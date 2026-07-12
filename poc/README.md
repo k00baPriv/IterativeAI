@@ -60,8 +60,11 @@ cycle, in order, from inside `poc/`:
 3. **Run the commands `diff` just printed, only for the "requiring the AI skill"
    group.** `diff` prints the exact command, e.g.:
    ```
-   /select-pipeline-template gold.fact_orders   # metadata changed
+   /select-pipeline-template gold.fact_orders   # metadata changed + template 'cast_dedupe_join' changed
    ```
+   The reason after `#` can list more than one cause — metadata and template can
+   both be stale on the same object at once, and both are reported, not just
+   whichever was checked first.
    Run each one in a Claude Code session whose working directory is `poc/` (or a
    subdirectory of it — required for a project-scoped skill to be discovered at
    all). This is the only step that uses AI, and it only ever writes one file per
@@ -203,17 +206,30 @@ this was built successfully."
 
 ### 3. Diff engine (`build/diff_engine.py`) — deterministic, no AI
 
-On `python run.py diff`, for every object:
+There's no caching or memoization anywhere in this: every metadata file and every
+template file gets re-read off disk and re-hashed from scratch on *every* `python
+run.py diff` — `hash_object()` (canonical JSON, SHA-256) for a metadata dict,
+`hash_file()` (raw bytes, SHA-256) for a template. The only thing carried between
+runs is what's already sitting in `manifest/hash_manifest.json` from the last
+successful `generate`. So, for every object:
 
 1. Compare its current metadata hash against the manifest's `metadata_hash`.
-2. If they match, look up which template its last selection used, and compare *that
-   template file's* current hash against the manifest's `template_hash`.
-3. Either mismatch → the object is `changed_or_new` (`change_reason()` reports which
-   one: `"metadata changed"`, `"template '<name>' changed"`, or `"new"`). Objects
-   pulled into the blast radius purely by depends_on propagation — not themselves
-   changed — get a different, fixed label instead (`"pulled in via depends_on"`) when
-   `run.py diff` prints them; calling `change_reason()` on an object that isn't
-   itself in `changed_or_new` would return the misleading `"unchanged"`.
+2. Independently — not "else if" — look up which template its last selection used,
+   and compare *that template file's* current hash against the manifest's
+   `template_hash`. Both checks always run; metadata being unchanged doesn't skip the
+   template check, and vice versa.
+3. Either mismatch → the object is `changed_or_new`. `change_reason()` reports *all*
+   reasons that actually apply, not just the first one found — an object can be
+   `"metadata changed + template 'cast_dedupe_join' changed"` at the same time (this
+   was a real bug: it used to return early on the first match and silently hide the
+   second). Objects pulled into the blast radius purely by depends_on propagation —
+   not themselves changed — get a different, fixed label instead
+   (`"pulled in via depends_on"`) when `run.py diff` prints them; calling
+   `change_reason()` on an object that isn't itself in `changed_or_new` would return
+   the misleading `"unchanged"`. A separate helper, `only_template_changed()`, answers
+   the narrower yes/no question `run.py` actually needs for routing (skip-the-skill
+   eligibility) — it doesn't parse `change_reason()`'s text, since that can now
+   contain multiple reasons.
 4. Build the **reverse** dependency graph (`object -> things that depend on it`) from
    every `depends_on` field.
 5. Starting from `changed_or_new`, walk the reverse graph forward (breadth-first) to
@@ -248,6 +264,14 @@ Three templates exist so far:
 - **`cast_dedupe_join`** — the same cast + dedupe as above on a *primary* source, then
   a left-join of a *secondary* source (typically an `aggregate` output) on a shared
   key. This is what lets `gold.fact_orders` depend on two objects instead of one.
+  Optionally also computes **derived columns** post-join, via `derived_columns` — but
+  from a closed set of ops (`_DERIVED_OPS` in `build/generator.py`), never a freeform
+  expression: `{"customer_location": {"op": "concat", "source_cols": ["city", "country"],
+  "separator": ", "}}` renders to
+  `F.concat_ws(", ", F.col("city"), F.col("country"))`. Same principle as `agg_map`'s
+  closed set of Spark functions — the skill picks an op and names columns, it never
+  writes the expression itself, and the generator independently validates every
+  `source_col` actually exists on one side of the join before rendering anything.
 
 Templates are meant to be small in number, hand-reviewed, and reused across many
 objects — the "vetted library" that makes per-object generation cheap and safe.
@@ -362,14 +386,26 @@ real systems get extended.
 `python run.py graph` renders the dependency graph as a Mermaid flowchart in
 `blast_radius.md`, color-coded from the same diff logic used by `run.py diff`:
 
-- 🔴 red — metadata changed, template changed, or the object is new (a direct hit)
+- 🔴 red — metadata changed, template changed, or the object/template is new (a
+  direct hit)
 - 🟡 yellow — unchanged itself, pulled in only because something it `depends_on`
-  changed (propagated impact)
+  changed (propagated impact) — only applies to data objects, never to templates
 - 🟢 green — untouched, hash matches the manifest, nothing to regenerate
 
-This is a pure read-over-the-same-state view (metadata + `hash_manifest.json`) — it
-doesn't compute anything the diff engine doesn't already compute, it just makes the
-blast radius visible before you commit to regenerating anything.
+**Templates are drawn as their own nodes**, rounded and connected by dashed lines to
+whichever objects currently use them (per each object's `selections/*.json`) — a
+visually distinct kind of edge from the solid `depends_on` lines between data objects.
+A template node goes red if its file hash doesn't match what's recorded in the
+manifest for *any* object using it. This was added after a real gap: template changes
+were already tracked correctly (see "Diff engine" above), but were invisible in the
+diagram itself — an object could go red purely because its template changed, with no
+visual indication of *why*. The summary block also gets a dedicated
+`**Templates changed:** <names>.` line when applicable.
+
+This is a pure read-over-the-same-state view (metadata + templates +
+`hash_manifest.json`) — it doesn't compute anything the diff engine doesn't already
+compute, it just makes the blast radius (now including template drift) visible before
+you commit to regenerating anything.
 
 ### 9. Orchestration (`run.py`)
 
@@ -506,6 +542,35 @@ This exact sequence was executed against the two tables in this repo, in order:
     `silver.orders` (new) and `gold.fact_orders` (metadata changed) —
     `silver.order_item_totals`, untouched by this change, correctly stayed out of it.
     Both regenerated correctly; repeat `diff` confirmed clean.
+20. **`derived_columns` added to `cast_dedupe_join`.** Motivated by a genuine gap: no
+    template could produce a computed column like "concatenate city and country."
+    Added as a closed-set op (`concat` today, more addable later) rather than a
+    freeform expression, consistent with how `agg_map` already worked — the generator
+    validates every `source_col` exists on one side of the join before rendering
+    anything, exactly like every other param.
+21. **`customer_location` defined on `fact_orders`, `diff`-only (no `generate`).**
+    Metadata updated with the new column + an updated `logic_description`; `diff`
+    correctly scoped this to just `gold.fact_orders` (`"metadata changed"`) — neither
+    `silver.orders` nor `silver.order_item_totals` moved, so neither showed up.
+    Nothing was generated or selected at this point, by request — this step was
+    purely "prove `diff` reacts correctly to a metadata-only change," decoupled from
+    actually building anything.
+22. **A real bug found by inspection, not by a live test this time.** Looking at the
+    `diff` output from step 21, `change_reason()` was only ever reporting "metadata
+    changed" — even though the `cast_dedupe_join` template had *also* changed in step
+    20. It returned early on the first match instead of checking both. Fixed by
+    making it collect every applicable reason instead of returning on the first;
+    added `only_template_changed()` as a precise boolean helper so `run.py`'s
+    skip-the-skill routing logic didn't have to parse a now-potentially-combined
+    reason string. Verified: the same object now reports
+    `"metadata changed + template 'cast_dedupe_join' changed"`.
+23. **Templates added as nodes to `blast_radius.md`.** Until now the diagram only
+    showed data objects — a template change was correctly detected (per step 22) but
+    invisible in the graph itself. `build/visualize.py` now draws each template as a
+    rounded node, dashed-linked to every object currently using it, colored red if
+    its file hash doesn't match what's recorded for any of them. Verified live:
+    `template_cast_dedupe_join` rendered red, dashed-linked to `gold.fact_orders`,
+    with a `**Templates changed:** cast_dedupe_join.` line in the summary.
 
 ## Why this addresses token cost and hallucination specifically
 
@@ -552,18 +617,22 @@ This exact sequence was executed against the two tables in this repo, in order:
 ## Current limitations of this POC
 
 - Three templates exist (`cast_and_dedupe`, `aggregate`, `cast_dedupe_join`); anything
-  else — SCD2/merge, multi-key joins, computed expressions (e.g. `quantity *
-  unit_price` inline rather than as a pre-existing source column), more than one
-  join in a single object — would hit the "no template matches" fallback, or in some
-  cases (multi-key join, a second join) isn't representable by the current templates
-  at all yet.
+  else — SCD2/merge, multi-key joins, more than one join in a single object — would
+  hit the "no template matches" fallback, or in some cases (multi-key join, a second
+  join) isn't representable by the current templates at all yet.
 - `cast_dedupe_join` only supports a `left` join on a single, same-named key column
   between exactly two sources. A three-way join, an inner join, or a join on
   differently-named columns would need a new template.
-- `aggregate` only supports one Spark agg function per output column over one
-  existing source column (or a bare count) — no computed expressions before
-  aggregating. That's why `bronze.order_items` carries a pre-computed `line_amount`
-  rather than the template multiplying `quantity * unit_price` itself.
+- `cast_dedupe_join`'s `derived_columns` supports exactly one op so far — `concat`
+  (`_DERIVED_OPS` in `build/generator.py`). No arithmetic, no conditionals, no
+  date math. Each new op is a small, deliberate addition to that closed set, not a
+  door to arbitrary expressions.
+- `aggregate` still supports zero computed expressions — one Spark agg function per
+  output column over one existing source column (or a bare count), full stop. That's
+  why `bronze.order_items` carries a pre-computed `line_amount` rather than the
+  template multiplying `quantity * unit_price` itself. `cast_dedupe_join`'s
+  `derived_columns` doesn't change this for `aggregate` — they're separate templates
+  with separate capabilities.
 - `build/visualize.py` only draws the graph; it doesn't gate anything. Nothing stops
   you from running `generate` without ever looking at `blast_radius.md` first.
 - `pyspark` isn't installed in this environment, so generated notebooks have never

@@ -23,6 +23,8 @@ $cast_lines
         join_df = spark.table("$join_source")
         df = df.join(join_df, on="$join_key", how="left")
 
+$derived_lines
+
         df = df.select($select_cols_repr)
 
         log_run(

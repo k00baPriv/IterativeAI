@@ -28,6 +28,7 @@ from build.diff_engine import (
     load_all_metadata,
     load_manifest,
     load_selection,
+    only_template_changed,
     save_manifest,
 )
 from build.generator import generate
@@ -69,11 +70,12 @@ def cmd_diff():
         skill_needed = []
         regen_only = []
         for obj_id in generation_targets:
-            reason = reason_for(obj_id)
             # Template-only change: metadata is byte-identical to last successful
             # build, so the existing selection (params derived from that metadata)
             # is still valid - just re-render with the new template, no AI needed.
-            if reason.startswith("template ") and load_selection(obj_id) is not None:
+            # Checked directly rather than parsing change_reason()'s text, since
+            # that can now report multiple simultaneous reasons.
+            if only_template_changed(obj_id, objects[obj_id], manifest) and load_selection(obj_id) is not None:
                 regen_only.append(obj_id)
             else:
                 skill_needed.append(obj_id)

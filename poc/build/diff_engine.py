@@ -95,17 +95,32 @@ def _manifest_entry(obj_id: str, manifest: dict) -> dict | None:
 
 
 def change_reason(obj_id: str, data: dict, manifest: dict) -> str:
-    """Human-readable reason a single object is considered changed/new.
+    """Human-readable reason a single object is considered changed/new. Both
+    metadata and template can be stale at once (e.g. a target column was added
+    AND the template it uses grew a new feature) - this reports all reasons
+    that actually apply, not just the first one found.
     Assumes the caller already knows obj_id is in changed_or_new_objects()."""
     entry = _manifest_entry(obj_id, manifest)
     if entry is None:
         return "new"
+    reasons = []
     if entry.get("metadata_hash") != hash_object(data):
-        return "metadata changed"
+        reasons.append("metadata changed")
     template_name, template_hash = current_template_state(obj_id)
     if template_name is not None and entry.get("template_hash") != template_hash:
-        return f"template '{template_name}' changed"
-    return "unchanged"
+        reasons.append(f"template '{template_name}' changed")
+    return " + ".join(reasons) if reasons else "unchanged"
+
+
+def only_template_changed(obj_id: str, data: dict, manifest: dict) -> bool:
+    """True iff this object's own metadata is untouched but its template
+    changed - the one case where the existing selection is still guaranteed
+    valid and the AI skill can be skipped entirely."""
+    entry = _manifest_entry(obj_id, manifest)
+    if entry is None or entry.get("metadata_hash") != hash_object(data):
+        return False
+    template_name, template_hash = current_template_state(obj_id)
+    return template_name is not None and entry.get("template_hash") != template_hash
 
 
 def changed_or_new_objects(objects: dict, manifest: dict) -> list[str]:

@@ -24,6 +24,17 @@ GENERATED_DIR = BASE / "generated"
 
 _AGG_FUNCS = {"sum": "F.sum", "avg": "F.avg", "min": "F.min", "max": "F.max", "count": "F.count"}
 
+# Closed set of derived-column operations. Each is a small, bounded Spark
+# expression builder - never a freeform expression the AI writes itself. Adding
+# a new op means adding one entry here, same spirit as _AGG_FUNCS.
+_DERIVED_OPS = {
+    "concat": lambda spec: (
+        f'F.concat_ws("{spec.get("separator", "")}", '
+        + ", ".join(f'F.col("{c}")' for c in spec["source_cols"])
+        + ")"
+    ),
+}
+
 
 def _load_metadata(object_id: str) -> dict:
     layer, name = object_id.split(".", 1)
@@ -190,15 +201,40 @@ def _cast_dedupe_join_context(object_id: str, target_metadata: dict, selection: 
     if join_key not in target_cols:
         raise ValueError(f"join_key {join_key!r} not present in target {target_metadata['object_id']}")
 
-    # after casting the primary side and left-joining the secondary side, the
-    # only columns available are primary's own + join's own - every declared
-    # target column must be traceable to one side or the other.
-    unreachable = target_cols - primary_cols - join_cols
+    # Columns available for a derived_columns source: anything present right
+    # after the join (before any derived column is computed - derived columns
+    # can't reference each other, keeping evaluation order unambiguous).
+    available_cols = primary_cols | join_cols
+    derived_map = params.get("derived_columns", {})
+
+    unknown_derived_output_cols = set(derived_map) - target_cols
+    if unknown_derived_output_cols:
+        raise ValueError(
+            f"derived_columns declares output columns not present in target "
+            f"{target_metadata['object_id']}: {unknown_derived_output_cols}"
+        )
+    for out_col, spec in derived_map.items():
+        op = spec.get("op")
+        if op not in _DERIVED_OPS:
+            raise ValueError(f"derived_columns['{out_col}'] uses unsupported op {op!r}")
+        unknown_source_cols = set(spec.get("source_cols", [])) - available_cols
+        if unknown_source_cols:
+            raise ValueError(
+                f"derived_columns['{out_col}'] references columns not available "
+                f"after the join (from {primary_metadata['object_id']} or "
+                f"{join_metadata['object_id']}): {unknown_source_cols}"
+            )
+
+    # after casting the primary side, left-joining the secondary side, and
+    # computing any derived_columns, the only columns available are primary's
+    # own + join's own + derived_columns outputs - every declared target column
+    # must be traceable to one of those.
+    unreachable = target_cols - primary_cols - join_cols - set(derived_map)
     if unreachable:
         raise ValueError(
             f"Target {target_metadata['object_id']} declares columns not present in "
-            f"either {primary_metadata['object_id']} or {join_metadata['object_id']}: "
-            f"{unreachable}"
+            f"either {primary_metadata['object_id']} or {join_metadata['object_id']}, "
+            f"and not produced by derived_columns: {unreachable}"
         )
 
     cast_lines = "\n".join(
@@ -206,6 +242,10 @@ def _cast_dedupe_join_context(object_id: str, target_metadata: dict, selection: 
         for col, cast_type in params.get("primary_cast_map", {}).items()
     )
     primary_key_cols_repr = ", ".join(f'"{c}"' for c in params["primary_key_cols"])
+    derived_lines = "\n".join(
+        f'        df = df.withColumn("{out_col}", {_DERIVED_OPS[spec["op"]](spec)})'
+        for out_col, spec in derived_map.items()
+    )
 
     return {
         "primary_source": params["primary_source"],
@@ -214,6 +254,7 @@ def _cast_dedupe_join_context(object_id: str, target_metadata: dict, selection: 
         "primary_order_col": params["primary_order_col"],
         "join_source": params["join_source"],
         "join_key": join_key,
+        "derived_lines": derived_lines,
         "select_cols_repr": _select_cols_repr(target_metadata),
     }
 
