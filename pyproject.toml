@@ -1,0 +1,13 @@
+[project]
+name = "metadata-pipeline-poc"
+version = "0.1.0"
+description = "Metadata-driven, incremental pipeline generator for Fabric notebooks (POC)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# Only needed to actually execute generated notebooks locally (e.g. against a local
+# Spark session for testing). Not required for diff/generate/graph themselves, and
+# not something Fabric notebooks need pip-installed - the Fabric runtime provides it.
+# spark = ["pyspark>=3.4"]
