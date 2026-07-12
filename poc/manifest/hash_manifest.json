@@ -6,9 +6,9 @@
     "metadata_hash": "1df7ec28f4ee27a966714584b23ca6a4dba09378ca0431d2af381387cd283b9c"
   },
   "gold.fact_orders": {
-    "metadata_hash": "5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+    "metadata_hash": "cf8f139b9da3b05991bbcc6a1e33a1e9f28d826ef2afad85b608fbc0b26238be",
     "template": "cast_dedupe_join",
-    "template_hash": "ca27d0b8325edd87dab2f19078628b38a8c443dddcc6226b5e571d5cdf31dd6a"
+    "template_hash": "02dfdc9e134398603c9ba0e8e491780445e3c9716125d444c2e0c99fdd0cec32"
   },
   "silver.order_item_totals": {
     "metadata_hash": "090399a76d84cb8d34971059f450bea21d155a5316218292a69e5e497199261e",

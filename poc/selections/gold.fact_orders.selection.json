@@ -7,14 +7,22 @@
     "primary_order_col": "order_date",
     "primary_cast_map": {},
     "join_source": "silver.order_item_totals",
-    "join_key": "order_id"
+    "join_key": "order_id",
+    "derived_columns": {
+      "customer_location": {
+        "op": "concat",
+        "source_cols": ["city", "country"],
+        "separator": ", "
+      }
+    }
   },
   "justification": {
-    "primary_source": "depends_on[0]",
-    "primary_key_cols": "transformation.grain",
+    "primary_source": "depends_on[0] (silver.orders)",
+    "primary_key_cols": "transformation.grain = 'order_id'",
     "primary_order_col": "transformation.logic_description: 'dedupe silver.orders on order_id keeping the latest row by order_date'",
     "primary_cast_map": "transformation.logic_description: 'already cast upstream, no further casts needed here'",
-    "join_source": "depends_on[1]",
-    "join_key": "transformation.logic_description: 'left join silver.order_item_totals on order_id'"
+    "join_source": "depends_on[1] (silver.order_item_totals)",
+    "join_key": "transformation.logic_description: 'left join silver.order_item_totals on order_id'; order_id present in both sources and target columns",
+    "derived_columns": "transformation.logic_description: 'concatenate city and country as customer_location separated by \", \"'; city and country both present in silver.orders"
   }
 }

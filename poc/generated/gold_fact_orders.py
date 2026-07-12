@@ -23,12 +23,14 @@ def build_fact_orders(spark):
         join_df = spark.table("silver.order_item_totals")
         df = df.join(join_df, on="order_id", how="left")
 
-        df = df.select("order_id", "order_date", "amount", "country", "city", "total_quantity", "total_amount", "item_count")
+        df = df.withColumn("customer_location", F.concat_ws(", ", F.col("city"), F.col("country")))
+
+        df = df.select("order_id", "order_date", "amount", "country", "city", "customer_location", "total_quantity", "total_amount", "item_count")
 
         log_run(
             run_id=run_id,
             object_id="gold.fact_orders",
-            version="5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+            version="cf8f139b9da3b05991bbcc6a1e33a1e9f28d826ef2afad85b608fbc0b26238be",
             started_at=started_at,
             status="success",
             rows_processed=df.count(),
@@ -38,7 +40,7 @@ def build_fact_orders(spark):
         log_run(
             run_id=run_id,
             object_id="gold.fact_orders",
-            version="5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+            version="cf8f139b9da3b05991bbcc6a1e33a1e9f28d826ef2afad85b608fbc0b26238be",
             started_at=started_at,
             status="error",
             error_message=f"{type(exc).__name__}: {exc}",
