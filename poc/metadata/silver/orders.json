@@ -1,0 +1,20 @@
+{
+  "object_id": "silver.orders",
+  "layer": "silver",
+  "depends_on": ["bronze.orders_raw"],
+  "transformation": {
+    "type": "cast_and_dedupe",
+    "logic_description": "cast amount to decimal(18,2), dedupe on order_id keeping the latest row by order_date - a cleaned, normalized copy of bronze.orders_raw with no other logic",
+    "grain": "order_id"
+  },
+  "columns": [
+    {"name": "order_id", "type": "string", "key": true},
+    {"name": "customer_id", "type": "string"},
+    {"name": "order_date", "type": "date"},
+    {"name": "amount", "type": "decimal(18,2)"},
+    {"name": "currency", "type": "string"},
+    {"name": "country", "type": "string"},
+    {"name": "city", "type": "string"}
+  ],
+  "version": "1.0"
+}

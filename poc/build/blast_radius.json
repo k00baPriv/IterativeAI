@@ -1,4 +1,5 @@
 [
-  "bronze.orders_raw",
+  "bronze.order_items",
+  "silver.order_item_totals",
   "gold.fact_orders"
 ]

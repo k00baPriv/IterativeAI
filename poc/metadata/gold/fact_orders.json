@@ -1,16 +1,21 @@
 {
   "object_id": "gold.fact_orders",
   "layer": "gold",
-  "depends_on": ["bronze.orders_raw"],
+  "depends_on": ["silver.orders", "silver.order_item_totals"],
   "transformation": {
-    "type": "cast_and_dedupe",
-    "logic_description": "cast amount to decimal(18,2), dedupe on order_id keeping the latest row by order_date",
+    "type": "cast_dedupe_join",
+    "logic_description": "dedupe silver.orders on order_id keeping the latest row by order_date (already cast upstream, no further casts needed here), then left join silver.order_item_totals on order_id to add total_quantity, total_amount, item_count",
     "grain": "order_id"
   },
   "columns": [
     {"name": "order_id", "type": "string", "key": true},
     {"name": "order_date", "type": "date"},
-    {"name": "amount", "type": "decimal(18,2)"}
+    {"name": "amount", "type": "decimal(18,2)"},
+    {"name": "country", "type": "string"},
+    {"name": "city", "type": "string"},
+    {"name": "total_quantity", "type": "int"},
+    {"name": "total_amount", "type": "decimal"},
+    {"name": "item_count", "type": "int"}
   ],
   "version": "1.0"
 }

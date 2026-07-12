@@ -1,12 +1,33 @@
 {
   "cast_and_dedupe": {
     "description": "Casts source columns to target types and deduplicates rows on a key, keeping the latest row per an ordering column.",
-    "matches_transformation_type": ["cast_and_dedupe", "aggregate_and_cast"],
+    "matches_transformation_type": ["cast_and_dedupe"],
     "params_schema": {
       "source_table": "string - fully qualified object_id of the single upstream source",
       "key_cols": "list[string] - columns forming the dedupe key (usually the target's grain)",
       "order_col": "string - column used to pick the 'latest' row when deduping",
       "cast_map": "object - {column_name: target_type} for columns that need a type cast"
+    }
+  },
+  "aggregate": {
+    "description": "Groups a single source by group_by_cols and computes one aggregate per output column via agg_map. No computed expressions - each aggregate is a single Spark agg function over a single existing source column (or a bare count).",
+    "matches_transformation_type": ["aggregate"],
+    "params_schema": {
+      "source_table": "string - fully qualified object_id of the single upstream source",
+      "group_by_cols": "list[string] - columns to group by (usually the target's grain)",
+      "agg_map": "object - {output_column: {source_col: string|null, func: 'sum'|'count'|'avg'|'min'|'max'}}. source_col is null only when func is 'count' (row count)."
+    }
+  },
+  "cast_dedupe_join": {
+    "description": "Casts + dedupes a primary source (same as cast_and_dedupe), then left-joins in a secondary source (typically the output of an aggregate template) on a shared key column.",
+    "matches_transformation_type": ["cast_dedupe_join"],
+    "params_schema": {
+      "primary_source": "string - fully qualified object_id of the primary (dedupe-then-cast) source",
+      "primary_key_cols": "list[string] - dedupe key on the primary source",
+      "primary_order_col": "string - column used to pick the 'latest' row when deduping the primary source",
+      "primary_cast_map": "object - {column_name: target_type} for columns on the primary source that need a cast",
+      "join_source": "string - fully qualified object_id of the secondary source to left-join in",
+      "join_key": "string - column name to join on; must exist, with the same name, in both sources and in the target's own columns"
     }
   }
 }

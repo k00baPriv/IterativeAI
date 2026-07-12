@@ -14,14 +14,16 @@ You are invoked with one `object_id`, e.g. `/select-pipeline-template gold.fact_
 ## Steps
 
 1. Read `poc/metadata/<layer>/<name>.json` for the given object_id (layer and name come from splitting object_id on the first `.`).
-2. Read the metadata for every object listed in its `depends_on` — you need their `columns` to know what's actually available upstream.
+2. Read the metadata for every object listed in its `depends_on` — you need their `columns` to know what's actually available upstream. Note some objects (like `cast_dedupe_join`) depend on more than one object — read all of them, not just the first.
 3. Read `poc/templates/registry.json` for the available templates and their `params_schema`.
 4. Pick the template whose `matches_transformation_type` includes the object's `transformation.type`. If none match, STOP and report that no template covers this object instead of guessing at code.
-5. Extract parameters for the chosen template strictly from fields you read in steps 1-2 (e.g. `source_table` from `depends_on`, `key_cols` from `transformation.grain`, `cast_map`/`order_col` from `transformation.logic_description`). For every parameter, record which metadata field justified it.
-6. Validate before writing output:
-   - Every column referenced in `cast_map` must exist in the source object's `columns`.
-   - Every column in `key_cols` must exist in the target object's `columns`.
+5. Extract parameters for the chosen template strictly from fields you read in steps 1-2, guided by that template's `params_schema` in the registry (e.g. a source object_id from `depends_on`, a dedupe/group key from `transformation.grain`, casts/aggregations/join keys from `transformation.logic_description`). For every parameter, record which metadata field justified it.
+6. Validate before writing output, using that template's `params_schema` as the checklist — in general:
+   - Every column any param references (a cast, a group-by column, a join key, an aggregation's source column) must actually exist in the metadata of the object it's read from.
+   - Every column the *target* object declares in its own `columns` must be traceable to something the chosen template can actually produce (a pass-through/cast from a single source, a group-by column or aggregate output, or a column from either side of a join) — never assume a column exists just because the target metadata lists it.
    - If validation fails, STOP and report the mismatch instead of writing a selection file.
+
+Note: the deterministic generator re-checks all of this independently against the metadata before writing any code — your validation here is a first line of defense, not the only one.
 
 ## Output
 

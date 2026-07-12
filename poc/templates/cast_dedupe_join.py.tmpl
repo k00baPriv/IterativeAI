@@ -8,27 +8,27 @@ from pyspark.sql.window import Window
 from lib.run_logger import log_run
 
 
-def build_fact_orders(spark):
+def build_$table_name(spark):
     run_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
 
     try:
-        df = spark.table("silver.orders")
+        df = spark.table("$primary_source")
 
+$cast_lines
 
-
-        window = Window.partitionBy("order_id").orderBy(F.col("order_date").desc())
+        window = Window.partitionBy($primary_key_cols_repr).orderBy(F.col("$primary_order_col").desc())
         df = df.withColumn("_rn", F.row_number().over(window)).filter(F.col("_rn") == 1).drop("_rn")
 
-        join_df = spark.table("silver.order_item_totals")
-        df = df.join(join_df, on="order_id", how="left")
+        join_df = spark.table("$join_source")
+        df = df.join(join_df, on="$join_key", how="left")
 
-        df = df.select("order_id", "order_date", "amount", "country", "city", "total_quantity", "total_amount", "item_count")
+        df = df.select($select_cols_repr)
 
         log_run(
             run_id=run_id,
-            object_id="gold.fact_orders",
-            version="5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+            object_id="$object_id",
+            version="$metadata_hash",
             started_at=started_at,
             status="success",
             rows_processed=df.count(),
@@ -37,8 +37,8 @@ def build_fact_orders(spark):
     except Exception as exc:
         log_run(
             run_id=run_id,
-            object_id="gold.fact_orders",
-            version="5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+            object_id="$object_id",
+            version="$metadata_hash",
             started_at=started_at,
             status="error",
             error_message=f"{type(exc).__name__}: {exc}",

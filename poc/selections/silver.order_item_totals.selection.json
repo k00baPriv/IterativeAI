@@ -1,0 +1,18 @@
+{
+  "object_id": "silver.order_item_totals",
+  "template": "aggregate",
+  "params": {
+    "source_table": "bronze.order_items",
+    "group_by_cols": ["order_id"],
+    "agg_map": {
+      "total_quantity": {"source_col": "quantity", "func": "sum"},
+      "total_amount": {"source_col": "line_amount", "func": "sum"},
+      "item_count": {"source_col": null, "func": "count"}
+    }
+  },
+  "justification": {
+    "source_table": "depends_on[0]",
+    "group_by_cols": "transformation.grain: 'order_id'",
+    "agg_map": "transformation.logic_description: 'group bronze.order_items by order_id, sum quantity as total_quantity, sum line_amount as total_amount, count rows as item_count'"
+  }
+}

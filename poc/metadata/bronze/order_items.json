@@ -1,0 +1,13 @@
+{
+  "object_id": "bronze.order_items",
+  "layer": "bronze",
+  "columns": [
+    {"name": "order_id", "type": "string"},
+    {"name": "sku", "type": "string"},
+    {"name": "quantity", "type": "int"},
+    {"name": "unit_price", "type": "decimal"},
+    {"name": "line_amount", "type": "decimal"},
+    {"name": "line_type", "type": "string" }
+  ],
+  "version": "1.0"
+}

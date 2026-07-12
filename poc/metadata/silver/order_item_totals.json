@@ -1,0 +1,17 @@
+{
+  "object_id": "silver.order_item_totals",
+  "layer": "silver",
+  "depends_on": ["bronze.order_items"],
+  "transformation": {
+    "type": "aggregate",
+    "logic_description": "group bronze.order_items by order_id, sum quantity as total_quantity, sum line_amount as total_amount, count rows as item_count",
+    "grain": "order_id"
+  },
+  "columns": [
+    {"name": "order_id", "type": "string", "key": true},
+    {"name": "total_quantity", "type": "int"},
+    {"name": "total_amount", "type": "decimal"},
+    {"name": "item_count", "type": "int"}
+  ],
+  "version": "1.0"
+}

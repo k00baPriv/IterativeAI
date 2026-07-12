@@ -1,16 +1,20 @@
 {
   "object_id": "gold.fact_orders",
-  "template": "cast_and_dedupe",
+  "template": "cast_dedupe_join",
   "params": {
-    "source_table": "bronze.orders_raw",
-    "key_cols": ["order_id"],
-    "order_col": "order_date",
-    "cast_map": {"amount": "decimal(18,2)"}
+    "primary_source": "silver.orders",
+    "primary_key_cols": ["order_id"],
+    "primary_order_col": "order_date",
+    "primary_cast_map": {},
+    "join_source": "silver.order_item_totals",
+    "join_key": "order_id"
   },
   "justification": {
-    "source_table": "depends_on[0]",
-    "key_cols": "transformation.grain",
-    "order_col": "transformation.logic_description: 'keep latest by order_date'",
-    "cast_map": "transformation.logic_description: 'cast amount to decimal(18,2)'"
+    "primary_source": "depends_on[0]",
+    "primary_key_cols": "transformation.grain",
+    "primary_order_col": "transformation.logic_description: 'dedupe silver.orders on order_id keeping the latest row by order_date'",
+    "primary_cast_map": "transformation.logic_description: 'already cast upstream, no further casts needed here'",
+    "join_source": "depends_on[1]",
+    "join_key": "transformation.logic_description: 'left join silver.order_item_totals on order_id'"
   }
 }

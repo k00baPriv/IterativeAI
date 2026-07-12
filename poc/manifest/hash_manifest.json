@@ -1,4 +1,23 @@
 {
-  "bronze.orders_raw": "4e427cd92b981613119ef141b31880dd69babbb46dce82c7005763bcf57cc7c6",
-  "gold.fact_orders": "9bc74e08811497394e9fe4f79c4d2b3e17a136338325417637114f44dab5c4bb"
+  "bronze.order_items": {
+    "metadata_hash": "957963adb8ffe28e1560ec19532990c7fd6d04e2a6213f38926c9e23a5a96152"
+  },
+  "bronze.orders_raw": {
+    "metadata_hash": "1df7ec28f4ee27a966714584b23ca6a4dba09378ca0431d2af381387cd283b9c"
+  },
+  "gold.fact_orders": {
+    "metadata_hash": "5e0774cb4adc55b037026722a94435bde24a540454191410a84dd74cd0a959ee",
+    "template": "cast_dedupe_join",
+    "template_hash": "ca27d0b8325edd87dab2f19078628b38a8c443dddcc6226b5e571d5cdf31dd6a"
+  },
+  "silver.order_item_totals": {
+    "metadata_hash": "090399a76d84cb8d34971059f450bea21d155a5316218292a69e5e497199261e",
+    "template": "aggregate",
+    "template_hash": "dbd6f11a1031fcdf35f454c4249561325b8a77d7d7be256f277dc193e4128e86"
+  },
+  "silver.orders": {
+    "metadata_hash": "3aa49856b7184ff96a2eae44939485637797f5e46c6fa035a3c03c18b3421c32",
+    "template": "cast_and_dedupe",
+    "template_hash": "bdc27b6dc1839031daa8a0729503352888c910a4b0772f42b8bf13ae6583ddad"
+  }
 }
