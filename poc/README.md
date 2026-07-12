@@ -169,7 +169,7 @@ flowchart LR
         silver_order_item_totals["order_item_totals\n(aggregate)"]
     end
     subgraph gold [gold]
-        gold_fact_orders["fact_orders\n(cast_dedupe_join)"]
+        gold_fact_orders["fact_orders\n(cast_dedupe_join + derived_columns)"]
     end
 
     bronze_orders_raw --> silver_orders
@@ -178,9 +178,17 @@ flowchart LR
     silver_order_item_totals --> gold_fact_orders
 ```
 
+`fact_orders` is labeled `cast_dedupe_join + derived_columns` rather than just the
+template name, since `derived_columns` is an optional capability *within* that
+template (see "Template library" below) — `customer_location` (`concat(city,
+country)`) is computed there, not via a separate node or edge, because it doesn't
+introduce any new dependency: both `city` and `country` already come from
+`silver.orders`, which `fact_orders` already depends on.
+
 Note this diagram shows *structure* (which objects exist and how they connect,
-labeled with the template each one uses) — it doesn't change as you build and
-regenerate. `blast_radius.md` (from `python run.py graph`) shows the same edges but
+labeled with the template — and any optional template capability — each one uses) —
+it doesn't change as you build and regenerate. `blast_radius.md` (from `python run.py
+graph`) shows the same edges but
 color-coded by current build *state* (changed/propagated/untouched); this one is the
 static map, that one is the live one.
 
